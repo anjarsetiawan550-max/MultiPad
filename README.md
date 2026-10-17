@@ -20,33 +20,28 @@ Sampler 6 pad bertema Doraemon biru, dibuat dengan JUCE 7. GUI memakai asset kit
 
 Catatan: hanya 10 detik pertama dari file yang dibaca, sesuai batas durasi maksimum.
 
-## Build lewat GitHub Actions
-1. Buat repo baru di GitHub, upload **seluruh isi folder ini** (termasuk folder `.github` dan `Assets`).
-2. Buka tab **Actions**, workflow *Build MULTI PAD LR PRO* berjalan otomatis
-   (atau klik **Run workflow**).
-3. Setelah hijau, unduh hasil di bagian **Artifacts**:
-   `MULTI_PAD_LR_PRO_Windows` dan `MULTI_PAD_LR_PRO_macOS`.
-4. (Opsional) Buat tag `v1.0.0` untuk otomatis membuat halaman Release berisi file zip.
+## Build Windows lewat GitHub Actions
+1. Upload **seluruh isi folder proyek** ke repository GitHub, termasuk folder `.github` dan `Assets`.
+2. Buka tab **Actions**. Workflow *Build MULTI PAD LR PRO (Windows)* berjalan saat push/PR, atau jalankan lewat **Run workflow**.
+3. Setelah job **Build (Windows)** berstatus hijau, unduh artifact `MULTI_PAD_LR_PRO_Windows`. ZIP berisi plugin VST3 dan aplikasi Standalone untuk Windows x64.
+4. (Opsional) Buat tag `v1.0.0` untuk menerbitkan Windows ZIP pada halaman Releases.
 
 ## Instalasi
 - **Windows**: salin folder `MULTI PAD LR PRO.vst3` ke `C:\Program Files\Common Files\VST3`.
   Aplikasi standalone: `Standalone\MULTI PAD LR PRO.exe`.
-- **macOS**: salin `MULTI PAD LR PRO.vst3` ke `~/Library/Audio/Plug-Ins/VST3`.
-  Build tidak ber-notarize; jika diblokir, klik kanan > Open, atau jalankan
-  `xattr -dr com.apple.quarantine "<file>"`. Untuk tombol global, izinkan aplikasi di
-  *System Settings > Privacy & Security > Input Monitoring* bila diminta.
 
-## Build lokal (opsional)
+## Build Windows lokal (opsional)
+Jalankan dari Developer PowerShell/terminal yang memiliki CMake dan Visual Studio C++ Build Tools:
+```powershell
+cmake -S . -B build -A x64
+cmake --build build --config Release --parallel 4
 ```
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release
-```
-Hasil ada di `build/MultiPadLR_artefacts/Release/`.
+Hasil ada di `build/MultiPadLR_artefacts/Release/`. Workflow CI saat ini hanya menghasilkan paket Windows x64.
 
 ## Struktur
 ```
 CMakeLists.txt
 Assets/            bg.png, pad1-6.png (tanpa label), icon.png
 Source/            PluginProcessor, PluginEditor, SettingsPanel, LRLookAndFeel, GlobalKeys
-.github/workflows/build.yml
+.github/workflows/main.yml
 ```

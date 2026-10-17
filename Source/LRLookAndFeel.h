@@ -9,22 +9,21 @@ public:
     LRLookAndFeel()
     {
         using juce::Colour;
-        using juce::Colours;
 
         setColour (juce::PopupMenu::backgroundColourId,            Colour (0xFF0E4DB0));
-        setColour (juce::PopupMenu::textColourId,                  Colours::white);
+        setColour (juce::PopupMenu::textColourId,                  juce::Colours::white);
         setColour (juce::PopupMenu::headerTextColourId,            Colour (0xFFFFD43B));
         setColour (juce::PopupMenu::highlightedBackgroundColourId, Colour (0xFF35B6FF));
         setColour (juce::PopupMenu::highlightedTextColourId,       Colour (0xFF06306F));
 
-        setColour (juce::Slider::textBoxTextColourId,       Colours::white);
+        setColour (juce::Slider::textBoxTextColourId,       juce::Colours::white);
         setColour (juce::Slider::textBoxBackgroundColourId, Colour (0xFF0A2A66).withAlpha (0.55f));
         setColour (juce::Slider::textBoxOutlineColourId,    Colour (0xFF0B3C8C));
         setColour (juce::Slider::textBoxHighlightColourId,  Colour (0xFFFFD43B));
-        setColour (juce::Label::textColourId,               Colours::white);
+        setColour (juce::Label::textColourId,               juce::Colours::white);
 
         setColour (juce::TooltipWindow::backgroundColourId, Colour (0xFF0B3C8C));
-        setColour (juce::TooltipWindow::textColourId,       Colours::white);
+        setColour (juce::TooltipWindow::textColourId,       juce::Colours::white);
         setColour (juce::TooltipWindow::outlineColourId,    Colour (0xFFFFD43B));
     }
 
