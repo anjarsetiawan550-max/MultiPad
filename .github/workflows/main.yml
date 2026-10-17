@@ -1,4 +1,4 @@
-name: Build MULTI PAD LR PRO
+name: Build MULTI PAD LR PRO (Windows)
 
 on:
   push:
@@ -12,62 +12,77 @@ permissions:
 
 jobs:
   build:
-    name: Build (${{ matrix.name }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            name: Windows
-          - os: macos-latest
-            name: macOS
+    name: Build (Windows)
+    runs-on: windows-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Configure (x64)
+        run: cmake -S . -B build -A x64
 
-      - name: Build
+      - name: Build (Release)
         run: cmake --build build --config Release --parallel 4
 
-      # ---------- Windows ----------
-      - name: Package (Windows)
-        if: runner.os == 'Windows'
+      - name: Package and verify Windows outputs
         shell: pwsh
         run: |
-          $art = Get-ChildItem -Path build -Directory -Filter "*_artefacts" | Select-Object -First 1
-          New-Item -ItemType Directory -Force -Path stage | Out-Null
-          New-Item -ItemType Directory -Force -Path dist  | Out-Null
-          Copy-Item -Recurse -Force "$($art.FullName)\Release\VST3" "stage\VST3"
-          Copy-Item -Recurse -Force "$($art.FullName)\Release\Standalone" "stage\Standalone"
-          Get-ChildItem -Recurse stage -Include *.pdb,*.lib,*.exp | Remove-Item -Force -ErrorAction SilentlyContinue
-          Compress-Archive -Path stage\* -DestinationPath dist\MULTI_PAD_LR_PRO_Windows.zip
+          $ErrorActionPreference = 'Stop'
 
-      # ---------- macOS ----------
-      - name: Package (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          ART=$(ls -d build/*_artefacts | head -n 1)
-          mkdir -p stage dist
-          cp -R "$ART/Release/VST3" stage/VST3
-          cp -R "$ART/Release/Standalone" stage/Standalone
-          for f in stage/VST3/*.vst3 stage/Standalone/*.app; do
-            codesign --force --deep -s - "$f"
-          done
-          ditto -c -k --keepParent stage dist/MULTI_PAD_LR_PRO_macOS.zip
+          $art = Get-ChildItem -Path build -Directory -Filter '*_artefacts' | Select-Object -First 1
+          if ($null -eq $art) {
+            throw 'JUCE artefacts folder was not found under build/.'
+          }
 
-      - name: Upload artifact
+          $vst3Root = Join-Path $art.FullName 'Release\VST3'
+          $standaloneRoot = Join-Path $art.FullName 'Release\Standalone'
+
+          if (-not (Test-Path -LiteralPath $vst3Root -PathType Container)) {
+            throw "VST3 output folder is missing: $vst3Root"
+          }
+          if (-not (Test-Path -LiteralPath $standaloneRoot -PathType Container)) {
+            throw "Standalone output folder is missing: $standaloneRoot"
+          }
+
+          $vst3Bundle = Get-ChildItem -LiteralPath $vst3Root -Directory -Filter '*.vst3' | Select-Object -First 1
+          $standaloneExe = Get-ChildItem -LiteralPath $standaloneRoot -File -Filter '*.exe' | Select-Object -First 1
+          if ($null -eq $vst3Bundle) {
+            throw "No .vst3 bundle was produced in: $vst3Root"
+          }
+          if ($null -eq $standaloneExe) {
+            throw "No Standalone .exe was produced in: $standaloneRoot"
+          }
+
+          Remove-Item -Recurse -Force stage, dist -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path 'stage\VST3', 'stage\Standalone', 'dist' | Out-Null
+
+          Copy-Item -LiteralPath $vst3Bundle.FullName -Destination 'stage\VST3' -Recurse -Force
+          Get-ChildItem -LiteralPath $standaloneRoot | Copy-Item -Destination 'stage\Standalone' -Recurse -Force
+
+          Get-ChildItem -Path 'stage' -Recurse -File |
+            Where-Object { $_.Extension -in @('.pdb', '.lib', '.exp') } |
+            Remove-Item -Force
+
+          $zipPath = 'dist\MULTI_PAD_LR_PRO_Windows.zip'
+          Compress-Archive -Path 'stage\*' -DestinationPath $zipPath -Force
+          if (-not (Test-Path -LiteralPath $zipPath -PathType Leaf)) {
+            throw 'The Windows ZIP package was not created.'
+          }
+
+          Write-Host "VST3 bundle: $($vst3Bundle.FullName)"
+          Write-Host "Standalone executable: $($standaloneExe.FullName)"
+          Get-Item -LiteralPath $zipPath | Select-Object FullName, Length | Format-List
+
+      - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MULTI_PAD_LR_PRO_${{ matrix.name }}
-          path: dist/*.zip
+          name: MULTI_PAD_LR_PRO_Windows
+          path: dist/MULTI_PAD_LR_PRO_Windows.zip
           if-no-files-found: error
 
   release:
-    name: Publish release
+    name: Publish Windows release
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
