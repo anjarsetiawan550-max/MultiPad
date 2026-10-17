@@ -1,0 +1,81 @@
+name: Build MULTI PAD LR PRO
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: Windows
+          - os: macos-latest
+            name: macOS
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release --parallel 4
+
+      # ---------- Windows ----------
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $art = Get-ChildItem -Path build -Directory -Filter "*_artefacts" | Select-Object -First 1
+          New-Item -ItemType Directory -Force -Path stage | Out-Null
+          New-Item -ItemType Directory -Force -Path dist  | Out-Null
+          Copy-Item -Recurse -Force "$($art.FullName)\Release\VST3" "stage\VST3"
+          Copy-Item -Recurse -Force "$($art.FullName)\Release\Standalone" "stage\Standalone"
+          Get-ChildItem -Recurse stage -Include *.pdb,*.lib,*.exp | Remove-Item -Force -ErrorAction SilentlyContinue
+          Compress-Archive -Path stage\* -DestinationPath dist\MULTI_PAD_LR_PRO_Windows.zip
+
+      # ---------- macOS ----------
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          ART=$(ls -d build/*_artefacts | head -n 1)
+          mkdir -p stage dist
+          cp -R "$ART/Release/VST3" stage/VST3
+          cp -R "$ART/Release/Standalone" stage/Standalone
+          for f in stage/VST3/*.vst3 stage/Standalone/*.app; do
+            codesign --force --deep -s - "$f"
+          done
+          ditto -c -k --keepParent stage dist/MULTI_PAD_LR_PRO_macOS.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MULTI_PAD_LR_PRO_${{ matrix.name }}
+          path: dist/*.zip
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
